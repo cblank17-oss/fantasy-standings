@@ -47,11 +47,17 @@ jobs:
         with:
           python-version: "3.12"
       - if: steps.mode.outputs.mode == 'full'
-        run: python -m unittest discover -s tests -t .
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: steps.mode.outputs.mode == 'full'
+        run: |
+          node --test tests/scoring.test.js
+          python -m unittest discover -s tests -t .
       - if: steps.mode.outputs.mode != 'skip'
         run: |
           if [ "${{ steps.mode.outputs.mode }}" = projections ]; then
-            python build.py --projections-only "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/standings.json"
+            python build.py --projections-only "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data.json"
           else
             python build.py
           fi

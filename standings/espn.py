@@ -1,4 +1,7 @@
-"""Fetch and normalize ESPN Fantasy Football league data.
+"""Fetch ESPN Fantasy Football league data.
+
+Python only fetches and trims the data; parsing and scoring live in
+static/js/ so the published page, the local app and the tests share one copy.
 
 ESPN's API is unofficial. Public leagues work with no credentials; private
 leagues need the `espn_s2` and `SWID` cookies from a logged-in browser session.
@@ -10,7 +13,6 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
 
 BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
 VIEWS = ["mTeam", "mMatchupScore", "mScoreboard", "mSettings", "mStatus"]
@@ -18,49 +20,6 @@ VIEWS = ["mTeam", "mMatchupScore", "mScoreboard", "mSettings", "mStatus"]
 
 class ESPNError(Exception):
     pass
-
-
-@dataclass
-class Team:
-    id: int
-    name: str
-    abbrev: str
-    owners: list[str] = field(default_factory=list)
-
-
-@dataclass
-class Game:
-    """One team's side of a matchup in a given week."""
-
-    team_id: int
-    opp_id: int | None  # None for a bye
-    points: float
-    opp_points: float | None
-    result: str  # "W", "L", "T", or "BYE"
-
-
-@dataclass
-class League:
-    id: int
-    season: int
-    name: str
-    teams: dict[int, Team]
-    weeks: dict[int, list[Game]]  # completed matchup periods only
-    regular_season_weeks: int
-    current_week: int
-    # In-progress week: {"week", "games": [{teamId, oppId, projected, live}]}
-    projection: dict | None = None
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "season": self.season,
-            "name": self.name,
-            "teams": {tid: vars(t) for tid, t in self.teams.items()},
-            "completedWeeks": sorted(self.weeks),
-            "regularSeasonWeeks": self.regular_season_weeks,
-            "currentWeek": self.current_week,
-        }
 
 
 def fetch_raw(league_id: int, season: int, espn_s2: str | None = None,
@@ -105,89 +64,39 @@ def fetch_raw(league_id: int, season: int, espn_s2: str | None = None,
     return data
 
 
-def parse_league(data: dict, include_playoffs: bool = False) -> League:
-    members = {}
-    for m in data.get("members", []):
-        name = m.get("displayName") or " ".join(
-            p for p in (m.get("firstName"), m.get("lastName")) if p)
-        members[m["id"]] = name
-
-    teams = {}
-    for t in data.get("teams", []):
-        name = t.get("name") or f"{t.get('location', '')} {t.get('nickname', '')}".strip()
-        teams[t["id"]] = Team(
-            id=t["id"],
-            name=name or f"Team {t['id']}",
-            abbrev=t.get("abbrev", ""),
-            owners=[members[o] for o in t.get("owners", []) if o in members],
-        )
-
-    settings = data.get("settings", {})
-    sched = settings.get("scheduleSettings", {})
-    reg_weeks = sched.get("matchupPeriodCount") or 0
-    status = data.get("status", {})
-    current = status.get("currentMatchupPeriod") or data.get("scoringPeriodId") or 0
-
-    by_week: dict[int, list[dict]] = {}
-    for m in data.get("schedule", []):
-        if not include_playoffs and m.get("playoffTierType", "NONE") != "NONE":
-            continue
-        by_week.setdefault(m["matchupPeriodId"], []).append(m)
-
-    weeks: dict[int, list[Game]] = {}
-    projection = None
-    for week, matchups in sorted(by_week.items()):
-        # Only count a week once every matchup in it is final.
-        if any(m.get("winner", "UNDECIDED") == "UNDECIDED" and "away" in m
-               for m in matchups):
-            if week == current:
-                projection = {"week": week, "games": _projected_games(matchups)}
-            continue
-        games = []
-        for m in matchups:
-            home, away = m["home"], m.get("away")
-            hp = float(home.get("totalPoints", 0))
-            if away is None:
-                games.append(Game(home["teamId"], None, hp, None, "BYE"))
-                continue
-            ap = float(away.get("totalPoints", 0))
-            winner = m.get("winner")
-            hr, ar = {"HOME": ("W", "L"), "AWAY": ("L", "W")}.get(winner, ("T", "T"))
-            games.append(Game(home["teamId"], away["teamId"], hp, ap, hr))
-            games.append(Game(away["teamId"], home["teamId"], ap, hp, ar))
-        weeks[week] = games
-
-    return League(
-        id=data.get("id", 0),
-        season=data.get("seasonId", 0),
-        name=settings.get("name", "Fantasy League"),
-        teams=teams,
-        weeks=weeks,
-        regular_season_weeks=reg_weeks,
-        current_week=current,
-        projection=projection,
-    )
+def _pick(d: dict, keys: tuple[str, ...]) -> dict:
+    return {k: d[k] for k in keys if k in d}
 
 
-def _projected_games(matchups: list[dict]) -> list[dict]:
-    """ESPN's live projected totals (actual points so far + projections)."""
-    def side(s: dict) -> dict:
-        live = float(s.get("totalPointsLive", s.get("totalPoints", 0)) or 0)
-        return {"teamId": s["teamId"], "live": live,
-                "projected": float(s.get("totalProjectedPointsLive") or live)}
+def trim(raw: dict, keep_members: bool = False) -> dict:
+    """Keep only the fields static/js/espn.js reads.
 
-    games = []
-    for m in matchups:
-        home = side(m["home"])
-        if "away" not in m:
-            games.append({**home, "oppId": None})
-            continue
-        away = side(m["away"])
-        games.append({**home, "oppId": away["teamId"]})
-        games.append({**away, "oppId": home["teamId"]})
-    return games
+    Without keep_members, owner names are dropped (the published page is public).
+    If the parser starts reading a new field, add it here.
+    """
+    side = ("teamId", "totalPoints", "totalPointsLive", "totalProjectedPointsLive")
+    team_keys = ("id", "name", "location", "nickname", "abbrev") + (("owners",) if keep_members else ())
+    schedule = []
+    for m in raw.get("schedule", []):
+        item = _pick(m, ("matchupPeriodId", "playoffTierType", "winner"))
+        item["home"] = _pick(m["home"], side)
+        if "away" in m:
+            item["away"] = _pick(m["away"], side)
+        schedule.append(item)
+    out = {
+        **_pick(raw, ("id", "seasonId", "scoringPeriodId")),
+        "status": _pick(raw.get("status", {}), ("currentMatchupPeriod",)),
+        "settings": {"name": raw.get("settings", {}).get("name", "Fantasy League")},
+        "teams": [_pick(t, team_keys) for t in raw.get("teams", [])],
+        "schedule": schedule,
+    }
+    if keep_members:
+        out["members"] = [_pick(m, ("id", "displayName", "firstName", "lastName"))
+                          for m in raw.get("members", [])]
+    return out
 
 
-def fetch_league(league_id: int, season: int, espn_s2: str | None = None,
-                 swid: str | None = None, include_playoffs: bool = False) -> League:
-    return parse_league(fetch_raw(league_id, season, espn_s2, swid), include_playoffs)
+def finished_matchups(raw: dict) -> int:
+    """How many matchups ESPN has marked final (used to spot a newly final week)."""
+    return sum(1 for m in raw.get("schedule", [])
+               if "away" in m and m.get("winner", "UNDECIDED") != "UNDECIDED")
