@@ -1,11 +1,14 @@
 // Entry point. Two modes:
 //   published  (GitHub Pages) data.json exists: read-only standings.
 //   local      (python3 app.py) no data.json: league form + rule editor.
+// Two tabs: Standings and League History (#history), history loaded on first open.
 
 import { parseLeague, scoreboardUrl } from "./espn.js";
 import { compute, project, PRESETS } from "./scoring.js";
 import { $, renderStandings, renderWeekly, renderProjection, standingsText, showError } from "./render.js";
 import { initEditor } from "./editor.js";
+import { computeHistory } from "./history.js";
+import { renderHistory, renderHistoryMessage } from "./history-view.js";
 
 const state = {
   raw: null,      // ESPN league JSON the standings are built from
@@ -13,6 +16,7 @@ const state = {
   config: null, options: {}, asOf: null, note: "",
 };
 let result = null;
+const hist = { seasons: null, loading: null, load: null }; // load(): mode-specific fetch of all seasons
 
 function recompute() {
   if (!state.raw) return;
@@ -28,6 +32,44 @@ function recompute() {
   } catch (e) {
     showError(e.message);
   }
+  showHistory(); // rule edits apply to history too
+}
+
+// ---- League History tab ----
+
+function showHistory() {
+  if (!hist.seasons) return;
+  try { renderHistory(computeHistory(hist.seasons, state.config)); }
+  catch (e) { renderHistoryMessage(e.message); }
+}
+
+async function openHistory() {
+  if (hist.seasons) return showHistory();
+  if (!hist.loading) {
+    renderHistoryMessage("Loading league history…");
+    hist.loading = hist.load()
+      .then(seasons => { hist.seasons = seasons; showHistory(); })
+      .catch(e => renderHistoryMessage(e.message))
+      .finally(() => { hist.loading = null; });
+  }
+  await hist.loading;
+}
+
+function setTab(tab) {
+  const onHistory = tab === "history";
+  $("standingsView").hidden = onHistory;
+  $("historyView").hidden = !onHistory;
+  document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  if (onHistory) openHistory();
+}
+
+function initTabs() {
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+    history.replaceState(null, "", b.dataset.tab === "history" ? "#history" : location.pathname + location.search);
+    setTab(b.dataset.tab);
+  });
+  window.addEventListener("hashchange", () => setTab(location.hash === "#history" ? "history" : "standings"));
+  setTab(location.hash === "#history" ? "history" : "standings");
 }
 
 // ---- Published mode ----
@@ -45,6 +87,12 @@ function applyPublished(d) {
   state.config = d.config || PRESETS[d.preset || "doubleheader"];
   state.asOf = d.liveAt;
   document.querySelector(".sub").textContent = `Updated ${new Date(d.generatedAt).toLocaleString()}`;
+}
+
+async function fetchPublishedHistory() {
+  const r = await fetch("history.json", { cache: "no-cache" });
+  if (!r.ok) throw new Error("League history isn't published yet. It appears after the next full update.");
+  return (await r.json()).seasons;
 }
 
 async function refreshPublished() {
@@ -69,6 +117,8 @@ async function refreshPublished() {
 
 // ---- Local mode ----
 
+let localKey = null;
+
 async function fetchLocal(form, fresh) {
   const res = await fetch("/api/league", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -78,7 +128,19 @@ async function fetchLocal(form, fresh) {
   if (!res.ok) throw new Error(data.error || "Request failed");
   state.raw = data;
   state.asOf = new Date().toISOString();
+  if (localKey !== `${form.leagueId}|${form.season}`) hist.seasons = null; // different league or season
+  localKey = `${form.leagueId}|${form.season}`;
   recompute();
+}
+
+async function fetchLocalHistory(form) {
+  if (!form.leagueId || !form.season) throw new Error("Load your league on the Standings tab first.");
+  const res = await fetch("/api/history", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Couldn't load league history.");
+  return data.seasons;
 }
 
 function initLocal() {
@@ -89,6 +151,7 @@ function initLocal() {
   });
   state.config = ed.config;
   state.options = ed.options;
+  hist.load = () => fetchLocalHistory(ed.readForm());
   const load = fresh => ed.load(fresh).catch(e => {
     showError(e.message);
     if (/private/i.test(e.message)) $("privateBox").open = true;
@@ -107,6 +170,7 @@ function initLocal() {
   if (published) {
     document.querySelector(".grid > div").hidden = true;
     document.querySelector(".grid").style.gridTemplateColumns = "minmax(0, 1fr)";
+    hist.load = fetchPublishedHistory;
     applyPublished(published);
     recompute();
     refresh = async () => { await refreshPublished(); recompute(); };
@@ -114,6 +178,7 @@ function initLocal() {
     refresh = initLocal();
   }
 
+  initTabs();
   $("projRefresh").onclick = async () => {
     const btn = $("projRefresh");
     btn.disabled = true; btn.textContent = "Refreshing…";

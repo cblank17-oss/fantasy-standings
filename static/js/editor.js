@@ -110,11 +110,13 @@ export function initEditor({ onConfig, onOptions, onLoad }) {
     changed(true);
   };
 
+  const readForm = () => ({
+    leagueId: $("leagueId").value.trim(), season: $("season").value.trim(),
+    espnS2: $("espnS2").value.trim(), swid: $("swid").value.trim(),
+  });
+
   async function load(fresh = false) {
-    const form = {
-      leagueId: $("leagueId").value.trim(), season: $("season").value.trim(),
-      espnS2: $("espnS2").value.trim(), swid: $("swid").value.trim(),
-    };
+    const form = readForm();
     if (!form.leagueId || !form.season) throw new Error("Enter a league ID and season.");
     store.set("league", { leagueId: form.leagueId, season: form.season, startWeek: $("startWeek").value,
       endWeek: $("endWeek").value, includePlayoffs: $("includePlayoffs").checked });
@@ -137,5 +139,5 @@ export function initEditor({ onConfig, onOptions, onLoad }) {
   if (ck) { $("espnS2").value = ck.espnS2 || ""; $("swid").value = ck.swid || ""; $("rememberCookies").checked = true; }
   render();
 
-  return { config, options: options(), load, autoload: !!lg.leagueId };
+  return { config, options: options(), load, readForm, autoload: !!lg.leagueId };
 }

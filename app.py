@@ -15,22 +15,32 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from standings import espn
+from standings import espn, history
 
 STATIC = (Path(__file__).parent / "static").resolve()
 CACHE_TTL = 300
 _cache: dict[str, tuple[float, dict]] = {}
 
 
-def get_league(league_id: int, season: int, s2: str | None, swid: str | None,
-               fresh: bool = False) -> dict:
-    key = hashlib.sha256(f"{league_id}|{season}|{s2}|{swid}".encode()).hexdigest()
+def _cached(key: str, fresh: bool, make) -> dict:
+    key = hashlib.sha256(key.encode()).hexdigest()
     hit = _cache.get(key)
     if hit and not fresh and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
-    data = espn.trim(espn.fetch_raw(league_id, season, s2, swid), keep_members=True)
+    data = make()
     _cache[key] = (time.time(), data)
     return data
+
+
+def get_league(league_id: int, season: int, s2: str | None, swid: str | None,
+               fresh: bool = False) -> dict:
+    return _cached(f"league|{league_id}|{season}|{s2}|{swid}", fresh, lambda:
+                   espn.trim(espn.fetch_raw(league_id, season, s2, swid), keep_members=True))
+
+
+def get_history(league_id: int, season: int, s2: str | None, swid: str | None) -> dict:
+    return _cached(f"history|{league_id}|{season}|{s2}|{swid}", False, lambda:
+                   history.build(league_id, espn.fetch_raw(league_id, season, s2, swid), s2, swid))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -59,13 +69,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, path.read_bytes(), ctype)
 
     def do_POST(self):
-        if self.path != "/api/league":
+        if self.path not in ("/api/league", "/api/history"):
             return self._json(404, {"error": "Not found"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
-            self._json(200, get_league(int(body["leagueId"]), int(body["season"]),
-                                       body.get("espnS2") or None, body.get("swid") or None,
-                                       bool(body.get("fresh"))))
+            args = (int(body["leagueId"]), int(body["season"]),
+                    body.get("espnS2") or None, body.get("swid") or None)
+            if self.path == "/api/history":
+                self._json(200, get_history(*args))
+            else:
+                self._json(200, get_league(*args, bool(body.get("fresh"))))
         except (KeyError, ValueError, json.JSONDecodeError) as e:
             self._json(400, {"error": str(e) or "Bad request"})
         except espn.ESPNError as e:

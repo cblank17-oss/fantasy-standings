@@ -43,10 +43,13 @@ export function parseLeague(raw, { includePlayoffs = false } = {}) {
 
   const teams = {};
   for (const t of raw.teams || []) {
-    const name = t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim();
+    const name = (t.name || `${t.location ?? ""} ${t.nickname ?? ""}`).trim();
     teams[t.id] = {
       id: t.id, name: name || `Team ${t.id}`, abbrev: t.abbrev || "",
       owners: (t.owners || []).map(o => members[o]).filter(Boolean),
+      manager: t.manager ?? null,             // opaque id that follows a person across seasons
+      finalRank: t.rankCalculatedFinal || null, // ESPN's final finish incl. playoffs (0 until the season ends)
+      seed: t.playoffSeed || null,
     };
   }
 
@@ -69,5 +72,6 @@ export function parseLeague(raw, { includePlayoffs = false } = {}) {
   return {
     id: raw.id, season: raw.seasonId, name: raw.settings?.name || "Fantasy League",
     teams, weeks, currentWeek: current, projection,
+    playoffTeamCount: raw.settings?.scheduleSettings?.playoffTeamCount || null,
   };
 }

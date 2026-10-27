@@ -68,14 +68,21 @@ def _pick(d: dict, keys: tuple[str, ...]) -> dict:
     return {k: d[k] for k in keys if k in d}
 
 
-def trim(raw: dict, keep_members: bool = False) -> dict:
+def owner_of(team: dict) -> str:
+    return team.get("primaryOwner") or (team.get("owners") or [None])[0] or f"team-{team['id']}"
+
+
+def trim(raw: dict, keep_members: bool = False, managers: dict[str, str] | None = None) -> dict:
     """Keep only the fields static/js/espn.js reads.
 
     Without keep_members, owner names are dropped (the published page is public).
+    `managers` maps ESPN owner ids to opaque ids, so history can follow a person
+    across seasons without publishing their ESPN id.
     If the parser starts reading a new field, add it here.
     """
     side = ("teamId", "totalPoints", "totalPointsLive", "totalProjectedPointsLive")
-    team_keys = ("id", "name", "location", "nickname", "abbrev") + (("owners",) if keep_members else ())
+    team_keys = ("id", "name", "location", "nickname", "abbrev", "rankCalculatedFinal", "playoffSeed") \
+        + (("owners",) if keep_members else ())
     schedule = []
     for m in raw.get("schedule", []):
         item = _pick(m, ("matchupPeriodId", "playoffTierType", "winner"))
@@ -86,8 +93,13 @@ def trim(raw: dict, keep_members: bool = False) -> dict:
     out = {
         **_pick(raw, ("id", "seasonId", "scoringPeriodId")),
         "status": _pick(raw.get("status", {}), ("currentMatchupPeriod",)),
-        "settings": {"name": raw.get("settings", {}).get("name", "Fantasy League")},
-        "teams": [_pick(t, team_keys) for t in raw.get("teams", [])],
+        "settings": {
+            "name": raw.get("settings", {}).get("name", "Fantasy League"),
+            "scheduleSettings": _pick(raw.get("settings", {}).get("scheduleSettings", {}),
+                                      ("playoffTeamCount",)),
+        },
+        "teams": [_pick(t, team_keys) | ({"manager": managers[owner_of(t)]} if managers else {})
+                  for t in raw.get("teams", [])],
         "schedule": schedule,
     }
     if keep_members:

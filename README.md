@@ -1,17 +1,18 @@
 # ESPN Custom Standings
 
-Doubleheader standings for ESPN fantasy football: 1 pt per H2H win + 1 pt for a top-half score each week, plus shotguns (last-place weeks) and projected standings for the week in progress.
+Doubleheader standings for ESPN fantasy football: 1 pt per H2H win + 1 pt for a top-half score each week, plus shotguns (last-place weeks), projected standings for the week in progress, and a League History tab covering every season since 2017.
 
 **Live page:** https://cblank17-oss.github.io/fantasy-standings/
 
 ## How it works
 
 - `standings/espn.py` fetches league data from ESPN and trims it to the fields the page needs.
-- `build.py` (run by GitHub Actions) writes that data to `site/data.json` next to a copy of `static/`.
+- `build.py` (run by GitHub Actions) writes that data next to a copy of `static/`: `site/data.json` (this season) and `site/history.json` (every season; managers are tracked by an anonymous id, never their ESPN account).
 - The page parses and scores the data in the browser. The scoring engine exists once, in `static/js/`:
   - `espn.js` parses ESPN data into weeks and this week's projection
   - `scoring.js` holds the rules, presets and tiebreakers. Projected standings use the same `compute()` with the projected week added.
-  - `render.js` draws the tables, `editor.js` is the rule editor (local app only), `main.js` wires it up.
+  - `history.js` rolls every season up per manager (titles, finishes, lifetime points and shotguns, records); `history-view.js` draws the League History tab.
+  - `render.js` draws the standings tables, `editor.js` is the rule editor (local app only), `main.js` wires up the tabs.
 
 ## Schedule
 
@@ -28,6 +29,6 @@ Enter the league ID and season. Private league: also paste the `espn_s2` and `SW
 ## Tests
 
 ```bash
-node --test tests/scoring.test.js
+npm test        # or: node --test tests/scoring.test.js tests/history.test.js
 python3 -m unittest discover -s tests -t .
 ```

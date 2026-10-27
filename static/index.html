@@ -11,7 +11,12 @@
   <h1>Custom Standings</h1>
   <p class="sub">Pull your ESPN fantasy football league and rank it with your own scoring rules.</p>
 
-  <div class="grid">
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-standings" data-tab="standings" aria-selected="true" aria-controls="standingsView">Standings</button>
+    <button role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="historyView">League History</button>
+  </nav>
+
+  <div class="grid" id="standingsView" role="tabpanel" aria-labelledby="tab-standings">
     <div>
       <section class="card">
         <h2>League</h2>
@@ -75,6 +80,8 @@
       </section>
     </div>
   </div>
+
+  <div id="historyView" role="tabpanel" aria-labelledby="tab-history" hidden></div>
 </main>
 
 <script type="module" src="js/main.js"></script>

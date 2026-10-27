@@ -1,3 +1,5 @@
+[hidden] { display: none !important; }
+
 :root {
   --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #dfe3e8;
   --text: #16191d; --muted: #5f6b78; --accent: #1f6feb; --accent-text: #ffffff;
@@ -59,3 +61,38 @@ td.total { font-weight: 700; font-size: 15px; }
   font-weight: 700; background: var(--danger-bg); color: var(--bad); vertical-align: 1px; }
 .shotgun-callout { background: var(--danger-bg); color: var(--text); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
 .tb-item { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 16px; overflow-x: auto; }
+.tabs button { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 8px 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+/* League History */
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.kpi .label, .record .label { font-size: 12px; color: var(--muted); }
+.kpi .value { font-size: clamp(22px, 6vw, 28px); font-weight: 600; line-height: 1.2; margin: 2px 0 4px; }
+.kpi .who, .record .who { font-size: 13px; }
+th.sortable { cursor: pointer; user-select: none; }
+table.wrap td, table.wrap th { white-space: normal; min-width: 90px; }
+table.wrap td:first-child { min-width: 0; }
+table.wrap .owner { display: block; }
+/* Keep the manager column visible while a wide table scrolls sideways. */
+.sticky-first th:first-child, .sticky-first td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+th.sortable:hover, th[aria-sort] { color: var(--text); }
+.fin { display: inline-block; min-width: 46px; padding: 3px 6px; border-radius: 4px; text-align: center;
+  font-weight: 600; font-size: 13px; white-space: nowrap; }
+.fin-champ { background: var(--cell-2); color: var(--cell-2-text); }
+.fin-playoffs { background: var(--cell-1); color: var(--text); }
+.fin-other { background: var(--cell-0); color: var(--text); }
+.fin-last { background: var(--danger-bg); color: var(--bad); }
+.fin-live { border: 1px dashed var(--border); color: var(--muted); font-style: italic; }
+.fin-none { color: var(--muted); font-weight: 400; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--muted); margin-top: 12px; }
+.legend .fin { min-width: 0; margin-right: 4px; }
+.records { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.record { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface-2); }
+.record .value { font-size: 22px; font-weight: 600; margin: 2px 0 4px; }
+.record .who .owner { display: block; }
