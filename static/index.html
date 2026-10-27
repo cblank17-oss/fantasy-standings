@@ -302,7 +302,15 @@ $("copyBtn").onclick = async () => {
   setTimeout(() => $("copyBtn").textContent = "Copy as text", 1500);
 };
 
+function initStatic(d) {
+  document.querySelector(".grid > div").hidden = true;
+  document.querySelector(".grid").style.gridTemplateColumns = "minmax(0, 1fr)";
+  document.querySelector(".sub").textContent = `Updated ${new Date(d.generatedAt).toLocaleString()}`;
+  lastResult = d; render(d);
+}
+
 (async function init() {
+  if (window.STATIC_DATA) return initStatic(window.STATIC_DATA);
   const res = await fetch("/api/presets"); const p = await res.json();
   PRESETS = p.presets; TIEBREAKERS = p.tiebreakers;
   $("preset").innerHTML = Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join("")
