@@ -262,17 +262,16 @@ function render(d) {
   const names = Object.fromEntries(Object.values(league.teams).map(t => [t.id, t.name]));
 
   const head = `<tr><th>#</th><th class="l">Team</th><th>Pts</th>${rules.map(r => `<th>${esc(r.label)}</th>`).join("")}
-    <th title="Weeks finishing last in points scored">Shotguns</th><th>H2H</th><th>All-play</th><th>PF</th><th>PA</th></tr>`;
+    <th title="Weeks finishing last in points scored">Shotguns</th><th>PF</th><th>PA</th></tr>`;
   const body = standings.map(s => {
     const h = s.rankHistory, prev = h.length > 1 ? h.at(-2) : null, delta = prev ? prev - s.rank : 0;
     const mv = delta > 0 ? `<span class="move-up" title="Up ${delta} from last week">▲${delta}</span>`
              : delta < 0 ? `<span class="move-down" title="Down ${-delta} from last week">▼${-delta}</span>` : "";
-    const rec = (w, l, t) => `${w}-${l}${t ? "-" + t : ""}`;
     return `<tr><td>${s.rank} ${mv}</td>
       <td class="l">${esc(s.name)}<div class="owner">${esc(s.owners.join(", "))}</div></td>
       <td class="total">${num(s.total)}</td>
       ${rules.map(r => `<td>${num(s.byRule[r.id])}</td>`).join("")}
-      <td>${s.shotguns}</td><td>${rec(s.wins, s.losses, s.ties)}</td><td>${rec(s.apWins, s.apLosses, s.apTies)}</td>
+      <td>${s.shotguns}</td>
       <td>${s.pf.toFixed(2)}</td><td>${s.pa.toFixed(2)}</td></tr>`;
   }).join("");
   $("standings").innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
