@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Custom Standings</title>
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #dfe3e8;
+  --text: #16191d; --muted: #5f6b78; --accent: #1f6feb; --accent-text: #ffffff;
+  --good: #1a7f37; --bad: #cf222e; --cell-0: #eef1f4; --cell-1: #b6d3fb; --cell-2: #1f6feb;
+  --cell-2-text: #ffffff; --danger-bg: #ffebe9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a20; --surface-2: #1f232b; --border: #2d333d;
+    --text: #e6e9ee; --muted: #9aa5b1; --accent: #4c8dff; --accent-text: #0b0d10;
+    --good: #3fb950; --bad: #f85149; --cell-0: #1f232b; --cell-1: #23406e; --cell-2: #4c8dff;
+    --cell-2-text: #0b0d10; --danger-bg: #3a1d1d;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.grid > div { min-width: 0; }
+@media (min-width: 900px) { .grid { grid-template-columns: 340px minmax(0, 1fr); align-items: start; } }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input, select { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font: inherit; }
+.row { display: flex; gap: 8px; } .row > * { flex: 1; min-width: 0; }
+.field { margin-bottom: 10px; }
+button { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button.ghost { background: none; border: none; color: var(--muted); padding: 4px 6px; }
+button:disabled { opacity: .6; cursor: default; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
+.hint { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+.rule { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--surface-2); }
+.rule-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+.rule-head input { font-weight: 600; }
+.error { background: var(--danger-bg); color: var(--bad); padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+th.l, td.l { text-align: left; }
+td.total { font-weight: 700; font-size: 15px; }
+.owner { color: var(--muted); font-size: 12px; }
+.move-up { color: var(--good); font-size: 11px; } .move-down { color: var(--bad); font-size: 11px; }
+.cell { display: inline-block; min-width: 26px; padding: 2px 4px; border-radius: 4px; text-align: center; font-weight: 600; }
+.c0 { background: var(--cell-0); color: var(--muted); } .c1 { background: var(--cell-1); }
+.c2 { background: var(--cell-2); color: var(--cell-2-text); }
+.wk td { padding: 4px; text-align: center; } .wk td.l { text-align: left; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar h2 { margin: 0; }
+.empty { color: var(--muted); padding: 32px 0; text-align: center; }
+.tb-item { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Custom Standings</h1>
+  <p class="sub">Pull your ESPN fantasy football league and rank it with your own scoring rules.</p>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <h2>League</h2>
+        <div class="row">
+          <div class="field"><label for="leagueId">League ID</label><input id="leagueId" inputmode="numeric" placeholder="e.g. 123456"></div>
+          <div class="field"><label for="season">Season</label><input id="season" inputmode="numeric"></div>
+        </div>
+        <p class="hint">The league ID is the <code>leagueId=</code> number in your ESPN league URL.</p>
+        <details id="privateBox">
+          <summary>Private league? Add cookies</summary>
+          <div class="field"><label for="espnS2">espn_s2</label><input id="espnS2" autocomplete="off"></div>
+          <div class="field"><label for="swid">SWID</label><input id="swid" autocomplete="off" placeholder="{XXXXXXXX-...}"></div>
+          <p class="hint">On espn.com while logged in: DevTools → Application → Cookies → copy <code>espn_s2</code> and <code>SWID</code>. They're only sent to ESPN through this local app.</p>
+          <label style="display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" id="rememberCookies" style="width:auto"> Remember on this computer</label>
+        </details>
+        <div class="row" style="margin-top:10px">
+          <div class="field"><label for="startWeek">From week</label><input id="startWeek" inputmode="numeric" placeholder="1"></div>
+          <div class="field"><label for="endWeek">Through week</label><input id="endWeek" inputmode="numeric" placeholder="latest"></div>
+        </div>
+        <label style="display:flex;gap:6px;align-items:center;color:var(--text);margin-bottom:12px"><input type="checkbox" id="includePlayoffs" style="width:auto"> Include playoff weeks</label>
+        <button class="primary" id="loadBtn" style="width:100%">Load standings</button>
+      </section>
+
+      <section class="card">
+        <div class="toolbar"><h2>Scoring rules</h2>
+          <select id="preset" style="width:auto"></select>
+        </div>
+        <div id="rules"></div>
+        <div class="row">
+          <button data-add="h2h">+ H2H</button>
+          <button data-add="weekly_rank">+ Weekly rank</button>
+          <button data-add="all_play">+ All-play</button>
+        </div>
+        <h2 style="margin-top:16px">Tiebreakers</h2>
+        <div id="tiebreakers"></div>
+        <button id="addTb">+ Tiebreaker</button>
+      </section>
+    </div>
+
+    <div>
+      <div id="error" class="error" hidden></div>
+      <section class="card">
+        <div class="toolbar">
+          <h2 id="standingsTitle">Standings</h2>
+          <button id="copyBtn" hidden>Copy as text</button>
+        </div>
+        <div class="table-wrap" id="standings"><div class="empty">Enter your league ID and load standings.</div></div>
+      </section>
+      <section class="card" id="weeklyCard" hidden>
+        <div class="toolbar"><h2>Points by week</h2><span class="hint" style="margin:0">Hover a cell for the score and matchup</span></div>
+        <div class="table-wrap" id="weekly"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+let PRESETS = {}, TIEBREAKERS = {}, config = null, lastResult = null, loaded = false;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = n => (Math.round(n * 100) / 100).toString();
+
+const RULE_DEFAULTS = {
+  h2h: { type: "h2h", label: "H2H win", win: 1, tie: 0.5, loss: 0, bye: 0 },
+  weekly_rank: { type: "weekly_rank", label: "Top half", side: "top", count: "half", points: 1, tieMode: "all" },
+  all_play: { type: "all_play", label: "All-play", perWin: 1, perTie: 0.5 },
+};
+
+function ruleFields(r) {
+  const n = (k, lbl) => `<div class="field"><label>${lbl}</label><input type="number" step="any" data-k="${k}" value="${esc(r[k])}"></div>`;
+  if (r.type === "h2h") return `<div class="row">${n("win","Win")}${n("tie","Tie")}${n("loss","Loss")}${n("bye","Bye")}</div>`;
+  if (r.type === "all_play") return `<div class="row">${n("perWin","Per team beaten")}${n("perTie","Per tie")}</div>
+    <p class="hint">Points for every team you outscored that week.</p>`;
+  return `<div class="row">
+      <div class="field"><label>Side</label><select data-k="side">
+        <option value="top"${r.side!=="bottom"?" selected":""}>Top</option>
+        <option value="bottom"${r.side==="bottom"?" selected":""}>Bottom</option></select></div>
+      <div class="field"><label>How many</label><input data-k="count" value="${esc(r.count)}" placeholder="half or a number"></div>
+      ${n("points","Points")}
+    </div>
+    <div class="field"><label>Tied at the cutoff</label><select data-k="tieMode">
+      <option value="all"${r.tieMode==="all"?" selected":""}>Everyone tied gets the point</option>
+      <option value="split"${r.tieMode==="split"?" selected":""}>Split the remaining points</option>
+      <option value="none"${r.tieMode==="none"?" selected":""}>Nobody tied gets it</option></select></div>
+    <p class="hint">"half" = top half of teams that week. Use Bottom with negative points for a low-score penalty.</p>`;
+}
+
+function renderRules() {
+  $("rules").innerHTML = config.rules.map((r, i) => `
+    <div class="rule" data-i="${i}">
+      <div class="rule-head"><input data-k="label" value="${esc(r.label)}" aria-label="Rule name">
+        <button class="ghost" data-del="${i}" title="Remove rule">✕</button></div>
+      ${ruleFields(r)}
+    </div>`).join("") || `<p class="hint">Add at least one rule.</p>`;
+  $("tiebreakers").innerHTML = config.tiebreakers.map((tb, i) => `
+    <div class="tb-item"><span class="hint" style="margin:0;width:16px">${i+1}.</span>
+      <select data-tb="${i}">${Object.entries(TIEBREAKERS).map(([k,v]) =>
+        `<option value="${k}"${k===tb?" selected":""}>${esc(v)}</option>`).join("")}</select>
+      <button class="ghost" data-tbdel="${i}" title="Remove">✕</button></div>`).join("");
+}
+
+function onRulesChanged() {
+  store.set("config", config);
+  $("preset").value = Object.keys(PRESETS).find(k => sameRules(PRESETS[k], config)) || "custom";
+  if (loaded) scheduleLoad();
+}
+const sameRules = (a, b) => JSON.stringify([a.rules, a.tiebreakers]) === JSON.stringify([b.rules, b.tiebreakers]);
+
+$("rules").addEventListener("input", e => {
+  const card = e.target.closest(".rule"); if (!card || !e.target.dataset.k) return;
+  const r = config.rules[+card.dataset.i], k = e.target.dataset.k, v = e.target.value;
+  r[k] = (e.target.type === "number") ? (v === "" ? 0 : Number(v))
+       : (k === "count" && /^\d+$/.test(v.trim())) ? Number(v) : v;
+  onRulesChanged();
+});
+$("rules").addEventListener("click", e => {
+  if (e.target.dataset.del === undefined) return;
+  config.rules.splice(+e.target.dataset.del, 1); renderRules(); onRulesChanged();
+});
+document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+  const t = b.dataset.add;
+  config.rules.push({ ...RULE_DEFAULTS[t], id: t + "_" + Date.now().toString(36) });
+  renderRules(); onRulesChanged();
+});
+$("tiebreakers").addEventListener("change", e => {
+  if (e.target.dataset.tb === undefined) return;
+  config.tiebreakers[+e.target.dataset.tb] = e.target.value; onRulesChanged();
+});
+$("tiebreakers").addEventListener("click", e => {
+  if (e.target.dataset.tbdel === undefined) return;
+  config.tiebreakers.splice(+e.target.dataset.tbdel, 1); renderRules(); onRulesChanged();
+});
+$("addTb").onclick = () => {
+  const next = Object.keys(TIEBREAKERS).find(k => !config.tiebreakers.includes(k)) || "points_for";
+  config.tiebreakers.push(next); renderRules(); onRulesChanged();
+};
+$("preset").onchange = () => {
+  if (!PRESETS[$("preset").value]) return;
+  config = structuredClone(PRESETS[$("preset").value]); renderRules(); onRulesChanged();
+};
+
+let timer;
+function scheduleLoad() { clearTimeout(timer); timer = setTimeout(load, 350); }
+
+async function load() {
+  const body = {
+    leagueId: $("leagueId").value.trim(), season: $("season").value.trim(),
+    espnS2: $("espnS2").value.trim(), swid: $("swid").value.trim(),
+    startWeek: $("startWeek").value.trim(), endWeek: $("endWeek").value.trim(),
+    includePlayoffs: $("includePlayoffs").checked, config,
+  };
+  if (!body.leagueId || !body.season) return showError("Enter a league ID and season.");
+  if (!config.rules.length) return showError("Add at least one scoring rule.");
+  store.set("league", { leagueId: body.leagueId, season: body.season, startWeek: body.startWeek,
+    endWeek: body.endWeek, includePlayoffs: body.includePlayoffs });
+  if ($("rememberCookies").checked) store.set("cookies", { espnS2: body.espnS2, swid: body.swid });
+  else store.del("cookies");
+
+  $("loadBtn").disabled = true; $("loadBtn").textContent = "Loading…";
+  try {
+    const res = await fetch("/api/standings", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    showError(null); loaded = true; lastResult = data; render(data);
+  } catch (err) {
+    showError(err.message);
+    if (/private/i.test(err.message)) $("privateBox").open = true;
+  } finally {
+    $("loadBtn").disabled = false; $("loadBtn").textContent = "Load standings";
+  }
+}
+$("loadBtn").onclick = load;
+["leagueId","season"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") load(); }));
+["startWeek","endWeek","includePlayoffs"].forEach(id => $(id).addEventListener("change", () => loaded && scheduleLoad()));
+
+function showError(msg) { $("error").hidden = !msg; $("error").textContent = msg || ""; }
+
+function render(d) {
+  const { league, weeks, rules, standings } = d;
+  const span = weeks.length ? (weeks.length === 1 ? `week ${weeks[0]}` : `weeks ${weeks[0]}–${weeks.at(-1)}`) : "no completed weeks yet";
+  $("standingsTitle").textContent = `${league.name} · ${league.season} · ${span}`;
+  $("copyBtn").hidden = !weeks.length;
+  const names = Object.fromEntries(Object.values(league.teams).map(t => [t.id, t.name]));
+
+  const head = `<tr><th>#</th><th class="l">Team</th><th>Pts</th>${rules.map(r => `<th>${esc(r.label)}</th>`).join("")}
+    <th>H2H</th><th>All-play</th><th>PF</th><th>PA</th></tr>`;
+  const body = standings.map(s => {
+    const h = s.rankHistory, prev = h.length > 1 ? h.at(-2) : null, delta = prev ? prev - s.rank : 0;
+    const mv = delta > 0 ? `<span class="move-up" title="Up ${delta} from last week">▲${delta}</span>`
+             : delta < 0 ? `<span class="move-down" title="Down ${-delta} from last week">▼${-delta}</span>` : "";
+    const rec = (w, l, t) => `${w}-${l}${t ? "-" + t : ""}`;
+    return `<tr><td>${s.rank} ${mv}</td>
+      <td class="l">${esc(s.name)}<div class="owner">${esc(s.owners.join(", "))}</div></td>
+      <td class="total">${num(s.total)}</td>
+      ${rules.map(r => `<td>${num(s.byRule[r.id])}</td>`).join("")}
+      <td>${rec(s.wins, s.losses, s.ties)}</td><td>${rec(s.apWins, s.apLosses, s.apTies)}</td>
+      <td>${s.pf.toFixed(2)}</td><td>${s.pa.toFixed(2)}</td></tr>`;
+  }).join("");
+  $("standings").innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+  $("weeklyCard").hidden = !weeks.length;
+  const maxWeek = Math.max(1, ...standings.flatMap(s => Object.values(s.weekly).map(w => w.total)));
+  $("weekly").innerHTML = `<table class="wk"><thead><tr><th class="l">Team</th>${weeks.map(w => `<th>W${w}</th>`).join("")}<th>Total</th></tr></thead><tbody>${
+    standings.map(s => `<tr><td class="l">${esc(s.name)}</td>${weeks.map(w => {
+      const x = s.weekly[w]; if (!x) return `<td>–</td>`;
+      const level = x.total <= 0 ? 0 : x.total >= maxWeek ? 2 : 1;
+      const parts = rules.map(r => `${r.label}: ${num(x.earned[r.id] ?? 0)}`).join("\n");
+      const vs = x.oppId != null ? `${x.result} ${x.points.toFixed(2)}–${x.oppPoints.toFixed(2)} vs ${names[x.oppId] ?? "?"}` : `Bye · ${x.points.toFixed(2)}`;
+      return `<td><span class="cell c${level}" title="${esc(`${vs}\nScoring rank ${x.rank} of ${Object.keys(league.teams).length}\n${parts}`)}">${num(x.total)}</span></td>`;
+    }).join("")}<td><b>${num(s.total)}</b></td></tr>`).join("")
+  }</tbody></table>`;
+}
+
+$("copyBtn").onclick = async () => {
+  const d = lastResult; if (!d) return;
+  const lines = [$("standingsTitle").textContent, ""];
+  d.standings.forEach(s => {
+    const parts = d.rules.map(r => `${r.label} ${num(s.byRule[r.id])}`).join(", ");
+    lines.push(`${s.rank}. ${s.name}: ${num(s.total)} pts (${parts}; ${s.wins}-${s.losses}${s.ties ? "-" + s.ties : ""}, ${s.pf.toFixed(1)} PF)`);
+  });
+  try { await navigator.clipboard.writeText(lines.join("\n")); $("copyBtn").textContent = "Copied"; }
+  catch { $("copyBtn").textContent = "Copy failed"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy as text", 1500);
+};
+
+(async function init() {
+  const res = await fetch("/api/presets"); const p = await res.json();
+  PRESETS = p.presets; TIEBREAKERS = p.tiebreakers;
+  $("preset").innerHTML = Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join("")
+    + `<option value="custom" disabled>Custom</option>`;
+  config = store.get("config", null) || structuredClone(PRESETS.doubleheader);
+  config.tiebreakers ??= [];
+  renderRules(); $("preset").value = Object.keys(PRESETS).find(k => sameRules(PRESETS[k], config)) || "custom";
+
+  const lg = store.get("league", {});
+  $("leagueId").value = lg.leagueId || ""; $("season").value = lg.season || new Date().getFullYear();
+  $("startWeek").value = lg.startWeek || ""; $("endWeek").value = lg.endWeek || "";
+  $("includePlayoffs").checked = !!lg.includePlayoffs;
+  const ck = store.get("cookies", null);
+  if (ck) { $("espnS2").value = ck.espnS2 || ""; $("swid").value = ck.swid || ""; $("rememberCookies").checked = true; }
+  if (lg.leagueId) load();
+})();
+</script>
+</body>
+</html>
