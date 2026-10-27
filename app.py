@@ -17,10 +17,11 @@ CACHE_TTL = 300
 _cache: dict[str, tuple[float, dict]] = {}
 
 
-def get_raw(league_id: int, season: int, s2: str | None, swid: str | None) -> dict:
+def get_raw(league_id: int, season: int, s2: str | None, swid: str | None,
+            fresh: bool = False) -> dict:
     key = hashlib.sha256(f"{league_id}|{season}|{s2}|{swid}".encode()).hexdigest()
     hit = _cache.get(key)
-    if hit and time.time() - hit[0] < CACHE_TTL:
+    if hit and not fresh and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
     data = espn.fetch_raw(league_id, season, s2, swid)
     _cache[key] = (time.time(), data)
@@ -58,7 +59,7 @@ class Handler(BaseHTTPRequestHandler):
             season = int(body["season"])
             config = body.get("config") or rules.PRESETS["doubleheader"]
             raw = get_raw(league_id, season, body.get("espnS2") or None,
-                          body.get("swid") or None)
+                          body.get("swid") or None, bool(body.get("fresh")))
             league = espn.parse_league(raw, bool(body.get("includePlayoffs")))
             result = rules.compute(league, config,
                                    _opt_int(body.get("startWeek")),

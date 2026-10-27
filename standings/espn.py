@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import dataclass, field
 
 BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
-VIEWS = ["mTeam", "mMatchupScore", "mSettings", "mStatus"]
+VIEWS = ["mTeam", "mMatchupScore", "mScoreboard", "mSettings", "mStatus"]
 
 
 class ESPNError(Exception):
@@ -48,6 +48,8 @@ class League:
     weeks: dict[int, list[Game]]  # completed matchup periods only
     regular_season_weeks: int
     current_week: int
+    # In-progress week: {"week", "games": [{teamId, oppId, projected, live}]}
+    projection: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -133,10 +135,13 @@ def parse_league(data: dict, include_playoffs: bool = False) -> League:
         by_week.setdefault(m["matchupPeriodId"], []).append(m)
 
     weeks: dict[int, list[Game]] = {}
+    projection = None
     for week, matchups in sorted(by_week.items()):
         # Only count a week once every matchup in it is final.
         if any(m.get("winner", "UNDECIDED") == "UNDECIDED" and "away" in m
                for m in matchups):
+            if week == current:
+                projection = {"week": week, "games": _projected_games(matchups)}
             continue
         games = []
         for m in matchups:
@@ -160,7 +165,27 @@ def parse_league(data: dict, include_playoffs: bool = False) -> League:
         weeks=weeks,
         regular_season_weeks=reg_weeks,
         current_week=current,
+        projection=projection,
     )
+
+
+def _projected_games(matchups: list[dict]) -> list[dict]:
+    """ESPN's live projected totals (actual points so far + projections)."""
+    def side(s: dict) -> dict:
+        live = float(s.get("totalPointsLive", s.get("totalPoints", 0)) or 0)
+        return {"teamId": s["teamId"], "live": live,
+                "projected": float(s.get("totalProjectedPointsLive") or live)}
+
+    games = []
+    for m in matchups:
+        home = side(m["home"])
+        if "away" not in m:
+            games.append({**home, "oppId": None})
+            continue
+        away = side(m["away"])
+        games.append({**home, "oppId": away["teamId"]})
+        games.append({**away, "oppId": home["teamId"]})
+    return games
 
 
 def fetch_league(league_id: int, season: int, espn_s2: str | None = None,

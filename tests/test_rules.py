@@ -125,6 +125,21 @@ class OtherRuleTests(unittest.TestCase):
         res = rules.compute(lg, DH)
         self.assertEqual({s["teamId"]: s["shotguns"] for s in res["standings"]}, {1: 1, 2: 1, 3: 0, 4: 1})
 
+    def test_projection_for_current_week(self):
+        sched = [matchup(1, 1, 120, 2, 100), matchup(1, 3, 90, 4, 80),
+                 matchup(2, 1, 30, 2, 20, winner="UNDECIDED"), matchup(2, 3, 10, 4, 5, winner="UNDECIDED"),
+                 matchup(3, 1, 0, 3, 0, winner="UNDECIDED"), matchup(3, 2, 0, 4, 0, winner="UNDECIDED")]
+        sched[2]["home"]["totalProjectedPointsLive"] = 110.5
+        raw = raw_league(sched)
+        raw["status"]["currentMatchupPeriod"] = 2
+        lg = espn.parse_league(raw)
+        self.assertEqual(sorted(lg.weeks), [1])
+        self.assertEqual(lg.projection["week"], 2)
+        t1 = next(g for g in lg.projection["games"] if g["teamId"] == 1)
+        self.assertEqual((t1["projected"], t1["oppId"]), (110.5, 2))
+        # No projection fed into standings when the range stops earlier.
+        self.assertIsNone(rules.compute(lg, DH, end_week=1)["projection"])
+
     def test_invalid_config(self):
         lg = espn.parse_league(raw_league([]))
         with self.assertRaises(rules.ConfigError):

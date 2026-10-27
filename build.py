@@ -39,6 +39,8 @@ def main():
     for team in result["league"]["teams"].values():
         team["owners"] = []
     result["generatedAt"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    if result["projection"]:
+        result["projection"]["asOf"] = result["generatedAt"]
 
     out = ROOT / "site"
     out.mkdir(exist_ok=True)

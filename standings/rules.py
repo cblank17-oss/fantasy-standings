@@ -198,6 +198,11 @@ def compute(league: League, config: dict, start_week: int | None = None,
         for tid, rank in _rank(list(rows.values()), config).items():
             history[tid].append(rank)
 
+    # Projected standings only make sense on top of the full season so far.
+    projection = league.projection
+    if projection and (end_week is not None and end_week < projection["week"]):
+        projection = None
+
     ranked = _rank(list(rows.values()), config)
     standings = sorted(rows.values(), key=lambda r: (ranked[r["teamId"]], r["name"]))
     for r in standings:
@@ -212,7 +217,9 @@ def compute(league: League, config: dict, start_week: int | None = None,
         "weeks": weeks,
         "rules": [{"id": r["id"], "label": r.get("label", r["id"])} for r in rules],
         "tiebreakers": config.get("tiebreakers", []),
+        "config": config,
         "standings": standings,
+        "projection": projection,
     }
 
 
