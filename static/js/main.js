@@ -45,6 +45,7 @@ function showHistory() {
 
 async function openHistory() {
   if (hist.seasons) return showHistory();
+  if (!hist.load) return renderHistoryMessage("Loading league history…"); // page still starting up
   if (!hist.loading) {
     renderHistoryMessage("Loading league history…");
     hist.loading = hist.load()
@@ -63,13 +64,12 @@ function setTab(tab) {
   if (onHistory) openHistory();
 }
 
+// The tabs are plain links (#history / #), so switching is just following the hash.
+const tabFromHash = () => (location.hash === "#history" ? "history" : "standings");
+
 function initTabs() {
-  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
-    history.replaceState(null, "", b.dataset.tab === "history" ? "#history" : location.pathname + location.search);
-    setTab(b.dataset.tab);
-  });
-  window.addEventListener("hashchange", () => setTab(location.hash === "#history" ? "history" : "standings"));
-  setTab(location.hash === "#history" ? "history" : "standings");
+  window.addEventListener("hashchange", () => setTab(tabFromHash()));
+  setTab(tabFromHash());
 }
 
 // ---- Published mode ----
@@ -165,6 +165,7 @@ function initLocal() {
 // ---- Boot ----
 
 (async function main() {
+  initTabs(); // first, so the tabs respond while data is still loading
   const published = await fetchPublished();
   let refresh;
   if (published) {
@@ -178,7 +179,7 @@ function initLocal() {
     refresh = initLocal();
   }
 
-  initTabs();
+  if (tabFromHash() === "history") openHistory(); // opened via #history before the data arrived
   $("projRefresh").onclick = async () => {
     const btn = $("projRefresh");
     btn.disabled = true; btn.textContent = "Refreshing…";

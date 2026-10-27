@@ -8,10 +8,12 @@ const ordinal = n => n + ({ 1: "st", 2: "nd", 3: "rd" }[(n % 100 > 10 && n % 100
 const record = (w, l, t) => `${w}-${l}${t ? "-" + t : ""}`;
 const joinNames = list => list.map(x => esc(x)).join(" &amp; ");
 
-// A past team name, plus who that manager is now when the name has changed.
+// A past team name, plus who that manager is now when the name has changed
+// (ignoring spacing/punctuation tweaks like "# name" vs "#name").
+const sameName = (a, b) => a.toLowerCase().replace(/[^a-z0-9]/g, "") === b.toLowerCase().replace(/[^a-z0-9]/g, "");
 function teamThen(h, x) {
   const now = h.names[x.manager];
-  return `${esc(x.team)}${now && now !== x.team ? ` <span class="owner">now ${esc(now)}</span>` : ""}`;
+  return `${esc(x.team)}${now && !sameName(now, x.team) ? ` <span class="owner">now ${esc(now)}</span>` : ""}`;
 }
 
 // Sortable all-time columns. `value` drives sorting; `cell` renders.

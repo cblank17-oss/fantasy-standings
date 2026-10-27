@@ -1,4 +1,7 @@
 {
   "leagueId": 385038,
-  "preset": "doubleheader"
+  "preset": "doubleheader",
+  "sameManager": [
+    { "note": "#pcbtrashmonster switched ESPN accounts in 2026", "teams": ["2025:9", "2026:9"] }
+  ]
 }

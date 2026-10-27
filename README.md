@@ -7,7 +7,7 @@ Doubleheader standings for ESPN fantasy football: 1 pt per H2H win + 1 pt for a 
 ## How it works
 
 - `standings/espn.py` fetches league data from ESPN and trims it to the fields the page needs.
-- `build.py` (run by GitHub Actions) writes that data next to a copy of `static/`: `site/data.json` (this season) and `site/history.json` (every season; managers are tracked by an anonymous id, never their ESPN account).
+- `build.py` (run by GitHub Actions) writes that data next to a copy of `static/` (with `?v=` version stamps so browsers never mix old and new files): `site/data.json` (this season) and `site/history.json` (every season; managers are tracked by an anonymous id, never their ESPN account).
 - The page parses and scores the data in the browser. The scoring engine exists once, in `static/js/`:
   - `espn.js` parses ESPN data into weeks and this week's projection
   - `scoring.js` holds the rules, presets and tiebreakers. Projected standings use the same `compute()` with the projected week added.
@@ -16,7 +16,7 @@ Doubleheader standings for ESPN fantasy football: 1 pt per H2H win + 1 pt for a 
 
 ## Schedule
 
-`.github/workflows/standings.yml`: standings rebuild Tuesday mornings ET (after MNF goes final); projections refresh every 15 min on Sundays 1 PM–midnight ET. Needs repo secrets `ESPN_S2` and `ESPN_SWID`, and Settings → Pages → Source set to "GitHub Actions". The league ID is in `league.json`.
+`.github/workflows/standings.yml`: standings rebuild Tuesday mornings ET (after MNF goes final); projections refresh every 15 min on Sundays 1 PM–midnight ET. Needs repo secrets `ESPN_S2` and `ESPN_SWID`, and Settings → Pages → Source set to "GitHub Actions". The league ID is in `league.json`, along with `sameManager`: team slots (`"season:teamId"`) that belong to one person, e.g. someone who switched ESPN accounts.
 
 ## Local app
 

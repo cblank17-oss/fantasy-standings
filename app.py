@@ -18,6 +18,7 @@ from pathlib import Path
 from standings import espn, history
 
 STATIC = (Path(__file__).parent / "static").resolve()
+LEAGUE_JSON = Path(__file__).parent / "league.json"
 CACHE_TTL = 300
 _cache: dict[str, tuple[float, dict]] = {}
 
@@ -38,9 +39,18 @@ def get_league(league_id: int, season: int, s2: str | None, swid: str | None,
                    espn.trim(espn.fetch_raw(league_id, season, s2, swid), keep_members=True))
 
 
+def same_manager(league_id: int) -> list[dict]:
+    """league.json's sameManager groups, when the app is showing that league."""
+    try:
+        cfg = json.loads(LEAGUE_JSON.read_text())
+    except (OSError, ValueError):
+        return []
+    return cfg.get("sameManager", []) if cfg.get("leagueId") == league_id else []
+
+
 def get_history(league_id: int, season: int, s2: str | None, swid: str | None) -> dict:
-    return _cached(f"history|{league_id}|{season}|{s2}|{swid}", False, lambda:
-                   history.build(league_id, espn.fetch_raw(league_id, season, s2, swid), s2, swid))
+    return _cached(f"history|{league_id}|{season}|{s2}|{swid}", False, lambda: history.build(
+        league_id, espn.fetch_raw(league_id, season, s2, swid), s2, swid, same_manager(league_id)))
 
 
 class Handler(BaseHTTPRequestHandler):

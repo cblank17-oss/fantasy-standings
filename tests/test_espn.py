@@ -48,6 +48,16 @@ class TrimTests(unittest.TestCase):
         s2 = {"teams": [{"id": 2, "primaryOwner": "C"}, {"id": 1, "primaryOwner": "B"}]}
         self.assertEqual(history.manager_ids([(2020, s1), (2021, s2)]), {"A": "m1", "B": "m2", "C": "m3"})
 
+    def test_same_manager_merges_accounts(self):
+        from standings import history
+        s1 = {"teams": [{"id": 9, "primaryOwner": "OLD"}, {"id": 7, "primaryOwner": "T"}]}
+        s2 = {"teams": [{"id": 9, "primaryOwner": "NEW"}, {"id": 7, "primaryOwner": "B"}]}
+        ids = history.manager_ids([(2025, s1), (2026, s2)], [{"teams": ["2025:9", "2026:9"]}])
+        self.assertEqual(ids["OLD"], ids["NEW"])
+        self.assertNotEqual(ids["T"], ids["B"])  # a slot changing hands stays two people
+        with self.assertRaises(ValueError):
+            history.manager_ids([(2025, s1)], [{"teams": ["2025:99"]}])
+
     def test_finished_matchups(self):
         self.assertEqual(espn.finished_matchups(RAW), 1)
 

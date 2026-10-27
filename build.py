@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import urllib.request
@@ -41,6 +43,18 @@ def fetch_published(site_url: str, name: str) -> dict | None:
     except Exception as e:  # first deploy, Pages hiccup, etc.
         print(f"Could not load published {name} ({e}); doing a full rebuild.")
         return None
+
+
+def stamp_assets(site: Path) -> str:
+    """Add ?v=<content hash> to every CSS/JS reference, including imports between
+    modules, so browsers never mix files from different deploys."""
+    files = sorted(p for p in site.rglob("*") if p.suffix in (".html", ".css", ".js"))
+    version = hashlib.sha256(b"".join(p.read_bytes() for p in files)).hexdigest()[:10]
+    ref = re.compile(r'((?:src|href)="|from ")((?:\./)?[\w./-]+\.(?:js|css))"')
+    for p in files:
+        if p.suffix != ".css":
+            p.write_text(ref.sub(rf'\1\2?v={version}"', p.read_text()))
+    return version
 
 
 def main():
@@ -72,9 +86,12 @@ def main():
             print("A new week has gone final; doing a full rebuild.")
         data = {"standings": live, "live": live, "generatedAt": now, "liveAt": now}
         try:
-            hist = {**history.build(league_id, raw, *cookies), "generatedAt": now}
+            hist = {**history.build(league_id, raw, *cookies, cfg.get("sameManager", [])),
+                    "generatedAt": now}
         except espn.ESPNError as e:
             sys.exit(f"Error fetching past seasons: {e}")
+        except ValueError as e:
+            sys.exit(f"Error in league.json: {e}")
         mode = "full"
     data["preset"] = cfg.get("preset", "doubleheader")
     data["config"] = cfg.get("config")
@@ -83,6 +100,7 @@ def main():
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(ROOT / "static", out)
+    stamp_assets(out)
     (out / "data.json").write_text(json.dumps(data))
     (out / "history.json").write_text(json.dumps(hist))
     print(f"Built ({mode}) site for {live['settings']['name']}, "
