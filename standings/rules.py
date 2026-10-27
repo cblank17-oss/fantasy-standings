@@ -140,7 +140,7 @@ def compute(league: League, config: dict, start_week: int | None = None,
             "total": 0.0, "byRule": {r["id"]: 0.0 for r in rules},
             "wins": 0, "losses": 0, "ties": 0,
             "apWins": 0, "apLosses": 0, "apTies": 0,
-            "pf": 0.0, "pa": 0.0, "weekly": {},
+            "pf": 0.0, "pa": 0.0, "shotguns": 0, "weekly": {},
         }
         for tid, t in league.teams.items()
     }
@@ -151,6 +151,7 @@ def compute(league: League, config: dict, start_week: int | None = None,
         scores = {g.team_id: g.points for g in games}
         ranks = {t: 1 + sum(o > s for o in scores.values()) for t, s in scores.items()}
         ap = _all_play_record(scores)
+        low = min(scores.values())
 
         earned: dict[int, dict[str, float]] = {t: {} for t in scores}
         for r in rules:
@@ -186,6 +187,7 @@ def compute(league: League, config: dict, start_week: int | None = None,
             row["apLosses"] += a[1]
             row["apTies"] += a[2]
             row["pf"] += g.points
+            row["shotguns"] += g.points == low  # last in scoring (ties all count)
             row["pa"] += g.opp_points or 0.0
             row["weekly"][w] = {
                 "points": g.points, "oppId": g.opp_id, "oppPoints": g.opp_points,

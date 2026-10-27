@@ -50,14 +50,14 @@ def main():
     rule_cols = res["rules"]
     width = max((len(r["name"]) for r in res["standings"]), default=4)
     header = f"{'#':>3}  {'Team':<{width}}  {'Pts':>5}  " + "  ".join(
-        f"{r['label']:>9}" for r in rule_cols) + f"  {'Record':>8}  {'PF':>8}"
+        f"{r['label']:>9}" for r in rule_cols) + f"  {'Shotguns':>8}  {'Record':>8}  {'PF':>8}"
     print(header)
     print("-" * len(header))
     for r in res["standings"]:
         rec = f"{r['wins']}-{r['losses']}" + (f"-{r['ties']}" if r["ties"] else "")
         print(f"{r['rank']:>3}  {r['name']:<{width}}  {fmt(r['total']):>5}  "
               + "  ".join(f"{fmt(r['byRule'][c['id']]):>9}" for c in rule_cols)
-              + f"  {rec:>8}  {r['pf']:>8.2f}")
+              + f"  {r['shotguns']:>8}  {rec:>8}  {r['pf']:>8.2f}")
 
 
 if __name__ == "__main__":

@@ -117,6 +117,14 @@ class OtherRuleTests(unittest.TestCase):
         lg = espn.parse_league(raw_league([matchup(1, 1, 120, 2, 100), matchup(1, 3, 90, 4, 80)]))
         self.assertEqual([s["rank"] for s in rules.compute(lg, cfg)["standings"]], [1, 1, 1, 1])
 
+    def test_shotguns_count_last_place_weeks(self):
+        lg = espn.parse_league(raw_league([
+            matchup(1, 1, 120, 2, 100), matchup(1, 3, 90, 4, 80),
+            matchup(2, 1, 70, 3, 130), matchup(2, 2, 70, 4, 90),  # T1 and T2 tie for last
+        ]))
+        res = rules.compute(lg, DH)
+        self.assertEqual({s["teamId"]: s["shotguns"] for s in res["standings"]}, {1: 1, 2: 1, 3: 0, 4: 1})
+
     def test_invalid_config(self):
         lg = espn.parse_league(raw_league([]))
         with self.assertRaises(rules.ConfigError):
