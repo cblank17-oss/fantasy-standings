@@ -27,7 +27,7 @@ function columns(h) {
     { key: "total", label: "Pts", value: m => m.total, dir: -1, cell: m => `<b>${num(m.total)}</b>` },
     ...h.rules.map(r => ({ key: `rule:${r.id}`, label: r.label, value: m => m.byRule[r.id], dir: -1, cell: m => num(m.byRule[r.id]) })),
     { key: "perWeek", label: "Pts/wk", value: m => m.perWeek, dir: -1, cell: m => m.perWeek.toFixed(2) },
-    { key: "shotguns", label: "Shotguns", value: m => m.shotguns, dir: -1 },
+    { key: "shotguns", label: h.shotgunsSince ? `Shotguns (${h.shotgunsSince}+)` : "Shotguns", value: m => m.shotguns, dir: -1 },
     { key: "record", label: "H2H record", value: m => (m.wins + m.ties / 2) / Math.max(1, m.wins + m.losses + m.ties), dir: -1, cell: m => record(m.wins, m.losses, m.ties) },
     { key: "pf", label: "PF", value: m => m.pf, dir: -1, cell: m => m.pf.toFixed(0) },
   ];
@@ -52,7 +52,7 @@ function tiles(h) {
   const first = h.seasons[0], last = h.seasons.at(-1);
   return `<div class="kpis">
     ${top(m => m.titles, "Most championships")}
-    ${top(m => m.shotguns, "Most lifetime shotguns")}
+    ${top(m => m.shotguns, h.shotgunsSince ? `Most shotguns since ${h.shotgunsSince}` : "Most lifetime shotguns")}
     ${top(m => m.total, "Most doubleheader points", num)}
     <div class="kpi"><div class="label">League history</div><div class="value">${h.seasons.length} seasons</div>
       <div class="who">${first}–${last} · ${h.managers.length} managers</div></div>
@@ -95,7 +95,7 @@ function finishes(h, sorted) {
       lines.push(`Final: ${ordinal(x.finish)}${x.finish === 1 ? " (champion)" : x.last ? " (last place)" : x.madePlayoffs ? " (made playoffs)" : ""}`,
         `Doubleheader regular season: ${ordinal(x.dhRank)}, ${num(x.total)} pts`);
     }
-    lines.push(`Record ${record(...x.record)} · ${x.shotguns} shotgun${x.shotguns === 1 ? "" : "s"}`);
+    lines.push(`Record ${record(...x.record)}` + (x.shotguns == null ? "" : ` · ${x.shotguns} shotgun${x.shotguns === 1 ? "" : "s"}`));
     return `<td><span class="fin ${cls}" title="${esc(lines.join("\n"))}">${label}</span></td>`;
   };
   return `<section class="card">
@@ -119,7 +119,8 @@ function seasonTable(h) {
       <td class="l">${s.complete ? "🏆 " + teams(s.champion) : "–"}</td>
       <td class="l">${s.complete ? teams(s.runnerUp) : "–"}</td>
       <td class="l">${teams(s.dhLeader)}${s.dhLeader.length ? ` <span class="owner">(${num(s.dhLeader[0].value)})</span>` : ""}</td>
-      <td class="l">${teams(s.mostShotguns)}${s.mostShotguns.length ? ` <span class="owner">(${s.mostShotguns[0].value})</span>` : ""}</td>
+      <td class="l">${!s.mostShotguns ? `<span class="owner">before shotguns</span>` : teams(s.mostShotguns)
+        + (s.mostShotguns.length ? ` <span class="owner">(${s.mostShotguns[0].value})</span>` : "")}</td>
       <td class="l">${s.complete ? teams(s.last) : "–"}</td></tr>`).join("");
   return `<section class="card">
     <h2>Season by season</h2>
@@ -156,7 +157,7 @@ export function renderHistory(h) {
   const el = $("historyView");
   const sorted = sortManagers(h, sort);
   el.innerHTML = tiles(h) + allTime(h, sorted, sort) + finishes(h, sorted) + seasonTable(h) + records(h)
-    + `<p class="hint">Doubleheader points and shotguns count regular-season weeks only, scored with the current rules for every season.
+    + `<p class="hint">Doubleheader points and shotguns count regular-season weeks only, scored with the current rules for every season.${h.shotgunsSince ? ` Shotguns are counted from ${h.shotgunsSince}, when the league started them.` : ""}
        Finishes are ESPN's final standings, including playoffs. Managers are tracked by ESPN account, so a team that changed hands counts as a new manager.</p>`;
   el.querySelectorAll("th.sortable").forEach(th => th.onclick = () => {
     const col = columns(h).find(c => c.key === th.dataset.sort);

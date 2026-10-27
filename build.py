@@ -93,6 +93,7 @@ def main():
         except ValueError as e:
             sys.exit(f"Error in league.json: {e}")
         mode = "full"
+    hist["shotgunsSince"] = cfg.get("shotgunsSince")
     data["preset"] = cfg.get("preset", "doubleheader")
     data["config"] = cfg.get("config")
 

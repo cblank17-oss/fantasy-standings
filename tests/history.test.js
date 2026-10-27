@@ -80,6 +80,18 @@ test("records, with ties kept", () => {
   assert.deepEqual(H.records.bestSeason.holders.map(h => `${h.team} ${h.season}`), ["Alpha 2024", "Bravo 2025", "Echo 2025"]);
 });
 
+test("shotguns only count from shotgunsSince; everything else unchanged", () => {
+  const h = computeHistory([S2024, S2025, S2026], DH, { shotgunsSince: 2025 });
+  const m = Object.fromEntries(h.managers.map(x => [x.id, x]));
+  assert.equal(h.managers.reduce((a, x) => a + x.shotguns, 0), 2);  // 2025 + 2026 weeks only
+  assert.equal(m.m4.shotguns, 0);                                    // Delta's 2024 shotgun dropped
+  assert.equal(m.m4.bySeason[2024].shotguns, null);
+  assert.equal(h.summaries.find(s => s.season === 2024).mostShotguns, null);
+  assert.ok(h.records.mostShotguns.holders.every(x => x.season >= 2025));
+  assert.equal(h.managers.reduce((a, x) => a + x.total, 0), 12);    // doubleheader points untouched
+  assert.equal(m.m1.titles, 1);
+});
+
 test("a season that hasn't started yet is skipped", () => {
   const fresh = season(2027, [[1, "Alpha II", "m1", 0, 0], [2, "Bravo", "m2", 0, 0]],
     [matchup(1, 1, 0, 2, 0, "UNDECIDED")], 1);

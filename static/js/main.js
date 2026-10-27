@@ -16,7 +16,7 @@ const state = {
   config: null, options: {}, asOf: null, note: "",
 };
 let result = null;
-const hist = { seasons: null, loading: null, load: null }; // load(): mode-specific fetch of all seasons
+const hist = { seasons: null, options: {}, loading: null, load: null }; // load(): mode-specific fetch of history.json
 
 function recompute() {
   if (!state.raw) return;
@@ -39,7 +39,7 @@ function recompute() {
 
 function showHistory() {
   if (!hist.seasons) return;
-  try { renderHistory(computeHistory(hist.seasons, state.config)); }
+  try { renderHistory(computeHistory(hist.seasons, state.config, hist.options)); }
   catch (e) { renderHistoryMessage(e.message); }
 }
 
@@ -49,7 +49,7 @@ async function openHistory() {
   if (!hist.loading) {
     renderHistoryMessage("Loading league history…");
     hist.loading = hist.load()
-      .then(seasons => { hist.seasons = seasons; showHistory(); })
+      .then(d => { hist.seasons = d.seasons; hist.options = { shotgunsSince: d.shotgunsSince ?? null }; showHistory(); })
       .catch(e => renderHistoryMessage(e.message))
       .finally(() => { hist.loading = null; });
   }
@@ -92,7 +92,7 @@ function applyPublished(d) {
 async function fetchPublishedHistory() {
   const r = await fetch("history.json", { cache: "no-cache" });
   if (!r.ok) throw new Error("League history isn't published yet. It appears after the next full update.");
-  return (await r.json()).seasons;
+  return r.json();
 }
 
 async function refreshPublished() {
@@ -140,7 +140,7 @@ async function fetchLocalHistory(form) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Couldn't load league history.");
-  return data.seasons;
+  return data;
 }
 
 function initLocal() {

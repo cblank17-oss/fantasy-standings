@@ -39,18 +39,22 @@ def get_league(league_id: int, season: int, s2: str | None, swid: str | None,
                    espn.trim(espn.fetch_raw(league_id, season, s2, swid), keep_members=True))
 
 
-def same_manager(league_id: int) -> list[dict]:
-    """league.json's sameManager groups, when the app is showing that league."""
+def league_cfg(league_id: int) -> dict:
+    """league.json's settings, when the app is showing that league."""
     try:
         cfg = json.loads(LEAGUE_JSON.read_text())
     except (OSError, ValueError):
-        return []
-    return cfg.get("sameManager", []) if cfg.get("leagueId") == league_id else []
+        return {}
+    return cfg if cfg.get("leagueId") == league_id else {}
 
 
 def get_history(league_id: int, season: int, s2: str | None, swid: str | None) -> dict:
-    return _cached(f"history|{league_id}|{season}|{s2}|{swid}", False, lambda: history.build(
-        league_id, espn.fetch_raw(league_id, season, s2, swid), s2, swid, same_manager(league_id)))
+    cfg = league_cfg(league_id)
+    return _cached(f"history|{league_id}|{season}|{s2}|{swid}", False, lambda: {
+        **history.build(league_id, espn.fetch_raw(league_id, season, s2, swid), s2, swid,
+                        cfg.get("sameManager", [])),
+        "shotgunsSince": cfg.get("shotgunsSince"),
+    })
 
 
 class Handler(BaseHTTPRequestHandler):

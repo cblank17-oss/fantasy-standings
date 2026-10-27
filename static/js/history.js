@@ -3,7 +3,8 @@
 // change names and occasionally change hands).
 //
 // Doubleheader points and shotguns are regular season only and use the current
-// rules for every season. Finishes are ESPN's final standings (incl. playoffs).
+// rules for every season. Shotguns only count from `shotgunsSince` (the season
+// the league started them). Finishes are ESPN's final standings (incl. playoffs).
 
 import { parseLeague } from "./espn.js";
 import { compute } from "./scoring.js";
@@ -18,7 +19,7 @@ function track(rec, key, entry, higherIsBetter) {
   }
 }
 
-export function computeHistory(seasons, config) {
+export function computeHistory(seasons, config, { shotgunsSince = null } = {}) {
   const managers = new Map();
   const summaries = [];
   const rec = {};
@@ -35,6 +36,7 @@ export function computeHistory(seasons, config) {
 
   for (const { season, data } of [...seasons].sort((a, b) => a.season - b.season)) {
     const league = parseLeague(data);
+    const sgTracked = shotgunsSince == null || season >= shotgunsSince;
     const res = compute(league, config);
     const teams = Object.values(league.teams), n = teams.length;
     const complete = teams.length > 0 && teams.every(t => t.finalRank);
@@ -49,7 +51,7 @@ export function computeHistory(seasons, config) {
       const finish = complete ? team.finalRank : null;
       m.names.push({ season, name: team.name });
       m.seasons++;
-      m.weeks += weeks; m.total += s.total; m.shotguns += s.shotguns; m.pf += s.pf;
+      m.weeks += weeks; m.total += s.total; m.shotguns += sgTracked ? s.shotguns : 0; m.pf += s.pf;
       m.wins += s.wins; m.losses += s.losses; m.ties += s.ties;
       for (const r of ruleIds) m.byRule[r] += s.byRule[r];
       m.titles += finish === 1; m.runnerUps += finish === 2; m.lasts += finish === n;
@@ -57,7 +59,7 @@ export function computeHistory(seasons, config) {
       m.playoffs += madePlayoffs === true;
       m.bySeason[season] = {
         team: team.name, finish, last: finish === n, madePlayoffs, dhRank: s.rank,
-        total: s.total, shotguns: s.shotguns, record: [s.wins, s.losses, s.ties], inProgress: !complete,
+        total: s.total, shotguns: sgTracked ? s.shotguns : null, record: [s.wins, s.losses, s.ties], inProgress: !complete,
       };
 
       const who = { team: team.name, manager: m.id, season };
@@ -71,7 +73,7 @@ export function computeHistory(seasons, config) {
           track(rec, "closest", { ...wk, value: margin, opp }, false);
         }
       }
-      track(rec, "mostShotguns", { ...who, value: s.shotguns, inProgress: !complete }, true);
+      if (sgTracked) track(rec, "mostShotguns", { ...who, value: s.shotguns, inProgress: !complete }, true);
       if (complete) {
         track(rec, "bestSeason", { ...who, value: s.total }, true);
         track(rec, "worstSeason", { ...who, value: s.total }, false);
@@ -83,7 +85,7 @@ export function computeHistory(seasons, config) {
       season, complete, weeks: res.weeks.length,
       champion: finishers(1), runnerUp: finishers(2), last: finishers(n),
       dhLeader: res.standings.filter(s => s.rank === 1).map(s => ({ team: s.name, manager: mgrOf(league.teams[s.teamId]), value: s.total })),
-      mostShotguns: maxSg ? res.standings.filter(s => s.shotguns === maxSg).map(s => ({ team: s.name, manager: mgrOf(league.teams[s.teamId]), value: maxSg })) : [],
+      mostShotguns: !sgTracked ? null : maxSg ? res.standings.filter(s => s.shotguns === maxSg).map(s => ({ team: s.name, manager: mgrOf(league.teams[s.teamId]), value: maxSg })) : [],
     });
   }
 
@@ -104,7 +106,7 @@ export function computeHistory(seasons, config) {
 
   const names = Object.fromEntries(rows.map(r => [r.id, r.name]));
   return {
-    seasons: summaries.map(s => s.season),
+    seasons: summaries.map(s => s.season), shotgunsSince,
     summaries, records: rec, managers: rows, names,
     rules: config.rules.map(r => ({ id: r.id, label: r.label || r.id })),
   };
