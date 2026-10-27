@@ -1,8 +1,16 @@
 name: Update standings
 
+# Standings: once a week after Monday Night Football is final (Tuesday morning ET,
+# with a midday retry in case ESPN finalizes late).
+# Projections: every 15 minutes, Sunday 1 PM to midnight ET.
+# GitHub cron is UTC, so the Sunday window is scheduled wide enough to cover both
+# EDT and EST and each run checks the real Eastern time before doing anything.
 on:
   schedule:
-    - cron: "17 * * * *"  # hourly; keeps projections fresh between manual refreshes
+    - cron: "17 10 * * 2"            # Tue ~6 AM ET: full standings rebuild
+    - cron: "17 16 * * 2"            # Tue ~noon ET: retry
+    - cron: "2,17,32,47 17-23 * * 0" # Sun afternoon/evening ET: projections
+    - cron: "2,17,32,47 0-4 * * 1"   # Sun late night ET (Mon UTC): projections
   workflow_dispatch:
   push:
     branches: [main]
@@ -14,27 +22,50 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - id: mode
+        run: |
+          case "${{ github.event.schedule }}" in
+            *"* * 0"|*"* * 1")
+              dow=$(TZ=America/New_York date +%u); hr=$(TZ=America/New_York date +%-H)
+              if [ "$dow" = 7 ] && [ "$hr" -ge 13 ]; then mode=projections; else mode=skip; fi ;;
+            *) mode=full ;;
+          esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode"
+      - if: steps.mode.outputs.mode != 'skip'
+        uses: actions/checkout@v4
+      - if: steps.mode.outputs.mode != 'skip'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m unittest discover -s tests -t .
-      - run: python build.py
+      - if: steps.mode.outputs.mode == 'full'
+        run: python -m unittest discover -s tests -t .
+      - if: steps.mode.outputs.mode != 'skip'
+        run: |
+          if [ "${{ steps.mode.outputs.mode }}" = projections ]; then
+            python build.py --projections-only "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/standings.json"
+          else
+            python build.py
+          fi
         env:
           ESPN_S2: ${{ secrets.ESPN_S2 }}
           ESPN_SWID: ${{ secrets.ESPN_SWID }}
-      - uses: actions/upload-pages-artifact@v3
+      - if: steps.mode.outputs.mode != 'skip'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
     needs: build
+    if: needs.build.outputs.mode != 'skip'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

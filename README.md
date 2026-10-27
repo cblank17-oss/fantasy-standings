@@ -12,6 +12,6 @@ Rules are editable in the page. Tests: `python3 -m unittest discover -s tests -t
 
 ## Auto-updating page
 
-A GitHub Action (`.github/workflows/standings.yml`) rebuilds the standings daily and publishes them to GitHub Pages. League ID lives in `league.json`; the season defaults to the current one.
+A GitHub Action (`.github/workflows/standings.yml`) publishes to GitHub Pages: standings rebuild Tuesday mornings ET (after MNF goes final), projections refresh every 15 min on Sundays 1 PM–midnight ET. League ID lives in `league.json`; the season defaults to the current one.
 
 Setup: add repo secrets `ESPN_S2` and `ESPN_SWID` (skip if the league is public), and set Settings → Pages → Source to "GitHub Actions".
