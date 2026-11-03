@@ -12,6 +12,9 @@ come from the ESPN_S2 / ESPN_SWID env vars.
         files are missing or a new week has gone final. With --min-minutes, does
         nothing (writes no site/) if the published projections are newer than N
         minutes, so frequent scheduled runs settle into a steady cadence.
+    python build.py --projections-only SITE_URL --only-new-final
+        rebuild only if ESPN has marked more matchups final than the published
+        standings have; otherwise do nothing (writes no site/).
 """
 
 from __future__ import annotations
@@ -70,6 +73,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--projections-only", metavar="SITE_URL")
     ap.add_argument("--min-minutes", type=float, default=0)
+    ap.add_argument("--only-new-final", action="store_true")
     args = ap.parse_args()
 
     cfg = json.loads((ROOT / "league.json").read_text())
@@ -91,8 +95,12 @@ def main():
         sys.exit(f"Error: {e}")
     live = espn.trim(raw)
     now = dt.datetime.now(dt.timezone.utc).isoformat()
-    if base and hist and "standings" in base and \
-            espn.finished_matchups(base["standings"]) == espn.finished_matchups(live):
+    unchanged = bool(base and hist and "standings" in base
+                     and espn.finished_matchups(base["standings"]) == espn.finished_matchups(live))
+    if unchanged and args.only_new_final:
+        print("No newly final matchups; skipping.")
+        return
+    if unchanged:
         data = {**base, "live": live, "liveAt": now}
         mode = "projections"
     else:

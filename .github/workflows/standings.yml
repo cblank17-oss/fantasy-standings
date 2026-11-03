@@ -6,6 +6,8 @@ name: Update standings
 #   Thursday noon – 1 AM   (Thursday night games, plus Thanksgiving afternoon)
 #   Sunday 9 AM – 1 AM     (London morning games through Sunday night)
 #   Monday 7 PM – 1 AM     (Monday night games)
+# Final-week check: every 15 minutes Tuesday 5 AM – 8 PM ET, rebuild the standings
+# as soon as ESPN marks the week final (does nothing otherwise).
 # GitHub runs scheduled jobs late or not at all when it's busy, so the windows are
 # polled every 5 minutes and build.py skips a run if projections were refreshed
 # less than 12 minutes ago. Cron is UTC, so the polling hours are wide enough to
@@ -20,6 +22,8 @@ on:
     - cron: "*/5 0-5 * * 1"          # Sunday night ET (Mon UTC)
     - cron: "*/5 23 * * 1"           # Monday evening ET
     - cron: "*/5 0-5 * * 2"          # Monday night ET (Tue UTC)
+    - cron: "*/15 9-23 * * 2"        # Tuesday ET: final-week check
+    - cron: "*/15 0 * * 3"           # Tuesday evening ET (Wed UTC)
   workflow_dispatch:
   push:
     branches: [main]
@@ -50,6 +54,7 @@ jobs:
               4:1[2-9]|4:2[0-3]|5:0)           mode=projections ;;  # Thursday noon – 1 AM
               7:9|7:1[0-9]|7:2[0-3]|1:0)       mode=projections ;;  # Sunday 9 AM – 1 AM
               1:19|1:2[0-3]|2:0)               mode=projections ;;  # Monday 7 PM – 1 AM
+              2:[5-9]|2:1[0-9])                mode=check ;;        # Tuesday 5 AM – 8 PM
               *)                               mode=skip ;;
             esac
           fi
@@ -71,8 +76,11 @@ jobs:
           python -m unittest discover -s tests -t .
       - if: steps.mode.outputs.mode != 'skip'
         run: |
+          site="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
           if [ "${{ steps.mode.outputs.mode }}" = projections ]; then
-            python build.py --min-minutes 12 --projections-only "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            python build.py --min-minutes 12 --projections-only "$site"
+          elif [ "${{ steps.mode.outputs.mode }}" = check ]; then
+            python build.py --only-new-final --projections-only "$site"
           else
             python build.py
           fi

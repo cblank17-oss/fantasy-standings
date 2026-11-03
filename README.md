@@ -16,7 +16,7 @@ Doubleheader standings for ESPN fantasy football: 1 pt per H2H win + 1 pt for a 
 
 ## Schedule
 
-`.github/workflows/standings.yml`: standings rebuild Tuesday mornings ET (after MNF goes final); projections refresh about every 15 min during game windows (ET: Thu noon–1 AM, Sun 9 AM–1 AM, Mon 7 PM–1 AM). Needs repo secrets `ESPN_S2` and `ESPN_SWID`, and Settings → Pages → Source set to "GitHub Actions". The league ID is in `league.json`, along with `sameManager`: team slots (`"season:teamId"`) that belong to one person, e.g. someone who switched ESPN accounts.
+`.github/workflows/standings.yml`: standings rebuild Tuesday mornings ET (after MNF goes final), and a check every 15 min on Tuesdays rebuilds them as soon as ESPN marks the week final; projections refresh about every 15 min during game windows (ET: Thu noon–1 AM, Sun 9 AM–1 AM, Mon 7 PM–1 AM). Needs repo secrets `ESPN_S2` and `ESPN_SWID`, and Settings → Pages → Source set to "GitHub Actions". The league ID is in `league.json`, along with `sameManager`: team slots (`"season:teamId"`) that belong to one person, e.g. someone who switched ESPN accounts.
 
 ## Local app
 
