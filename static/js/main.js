@@ -111,7 +111,8 @@ async function refreshPublished() {
     }
     state.note = "live from ESPN";
   } catch {
-    state.note = "couldn't reach ESPN live (private league), showing the latest automatic update";
+    state.note = "live refresh needs an ESPN login this browser won't share, so these are from the latest "
+      + "automatic update (every ~15 min during games)";
   }
 }
 

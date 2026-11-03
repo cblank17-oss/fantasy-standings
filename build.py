@@ -6,10 +6,12 @@ page computes everything from these in the browser. Reads league.json; cookies
 come from the ESPN_S2 / ESPN_SWID env vars.
 
     python build.py                      full rebuild
-    python build.py --projections-only SITE_URL
+    python build.py --projections-only SITE_URL [--min-minutes N]
         keep the standings and history published at SITE_URL and only refresh
         this week's projections. Falls back to a full rebuild if the published
-        files are missing or a new week has gone final.
+        files are missing or a new week has gone final. With --min-minutes, does
+        nothing (writes no site/) if the published projections are newer than N
+        minutes, so frequent scheduled runs settle into a steady cadence.
 """
 
 from __future__ import annotations
@@ -45,6 +47,13 @@ def fetch_published(site_url: str, name: str) -> dict | None:
         return None
 
 
+def minutes_since(iso: str | None) -> float | None:
+    try:
+        return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(iso)).total_seconds() / 60
+    except (TypeError, ValueError):
+        return None
+
+
 def stamp_assets(site: Path) -> str:
     """Add ?v=<content hash> to every CSS/JS reference, including imports between
     modules, so browsers never mix files from different deploys."""
@@ -60,23 +69,28 @@ def stamp_assets(site: Path) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--projections-only", metavar="SITE_URL")
+    ap.add_argument("--min-minutes", type=float, default=0)
     args = ap.parse_args()
 
     cfg = json.loads((ROOT / "league.json").read_text())
     season = int(cfg.get("season") or default_season(dt.date.today()))
     league_id = int(cfg["leagueId"])
     cookies = (os.environ.get("ESPN_S2") or None, os.environ.get("ESPN_SWID") or None)
+    base = hist = None
+    if args.projections_only:
+        base = fetch_published(args.projections_only, "data.json")
+        age = minutes_since(base.get("liveAt")) if base else None
+        if age is not None and age < args.min_minutes:
+            print(f"Projections were refreshed {age:.0f} min ago; skipping.")
+            return
+        hist = base and fetch_published(args.projections_only, "history.json")
+
     try:
         raw = espn.fetch_raw(league_id, season, *cookies)
     except espn.ESPNError as e:
         sys.exit(f"Error: {e}")
     live = espn.trim(raw)
-
     now = dt.datetime.now(dt.timezone.utc).isoformat()
-    base = hist = None
-    if args.projections_only:
-        base = fetch_published(args.projections_only, "data.json")
-        hist = base and fetch_published(args.projections_only, "history.json")
     if base and hist and "standings" in base and \
             espn.finished_matchups(base["standings"]) == espn.finished_matchups(live):
         data = {**base, "live": live, "liveAt": now}

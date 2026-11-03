@@ -25,5 +25,15 @@ class StampTests(unittest.TestCase):
             self.assertIn('"not/a/ref.js"', js)  # plain strings are left alone
 
 
+
+class AgeTests(unittest.TestCase):
+    def test_minutes_since(self):
+        import datetime as dt
+        ten_ago = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=10)).isoformat()
+        self.assertAlmostEqual(build.minutes_since(ten_ago), 10, delta=0.1)
+        self.assertIsNone(build.minutes_since(None))
+        self.assertIsNone(build.minutes_since("not a time"))
+
+
 if __name__ == "__main__":
     unittest.main()
